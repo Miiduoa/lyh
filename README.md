@@ -34,3 +34,18 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Deploy on Render (Data Persistence)
+
+This project writes editable profile content and uploaded photos to disk.
+On Render, use a Persistent Disk, otherwise data can be lost on restart/redeploy.
+
+1. Create a Persistent Disk for your Web Service.
+2. Set mount path to a fixed directory (example: `/opt/render/project/src/storage`).
+3. Add environment variable: `APP_STORAGE_DIR=/opt/render/project/src/storage`.
+4. Redeploy the service.
+
+After this, profile content and photos will be stored under:
+
+- `${APP_STORAGE_DIR}/profile-content.json`
+- `${APP_STORAGE_DIR}/photos/`

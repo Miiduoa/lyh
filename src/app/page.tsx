@@ -50,7 +50,10 @@ const tenYearObjectives = [
 
 const PHOTO_STORAGE_KEY = "dbm-profile-photo";
 const EDIT_MODE_STORAGE_KEY = "dbm-edit-mode";
+const CONTENT_SYNC_STORAGE_KEY = "dbm-profile-content";
 const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+const CONTENT_SAVE_DEBOUNCE_MS = 800;
+const PROFILE_EDITABLE_SELECTOR = "[data-profile-editable='1']";
 const ALLOWED_PHOTO_MIME_TYPES = new Set([
   "image/jpeg",
   "image/jpg",
@@ -74,15 +77,34 @@ type PhotoApiResponse = {
   message?: string;
   error?: string;
 };
+type ProfileContentApiResponse = {
+  ok?: boolean;
+  values?: string[] | null;
+  updatedAt?: number | null;
+  message?: string;
+  error?: string;
+};
 
 export default function Home() {
   const [editMode, setEditMode] = useState(false);
   const [editModeReady, setEditModeReady] = useState(false);
   const [exportMode, setExportMode] = useState(false);
+  const mainRef = useRef<HTMLElement | null>(null);
+  const saveContentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [photoPending, setPhotoPending] = useState(false);
   const [photoResult, setPhotoResult] = useState<string | null>(null);
   const [photoResultTone, setPhotoResultTone] = useState<ResultTone | null>(
+    null,
+  );
+  const [contentValues, setContentValues] = useState<string[] | null>(null);
+  const [contentSyncPending, setContentSyncPending] = useState(false);
+  const [contentSyncResult, setContentSyncResult] = useState<string | null>(
+    null,
+  );
+  const [contentSyncTone, setContentSyncTone] = useState<ResultTone | null>(
     null,
   );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -110,6 +132,135 @@ export default function Home() {
     if (typeof window === "undefined" || !editModeReady) return;
     window.localStorage.setItem(EDIT_MODE_STORAGE_KEY, editMode ? "1" : "0");
   }, [editMode, editModeReady]);
+
+  const collectEditableValues = () => {
+    const root = mainRef.current;
+    if (!root) return [] as string[];
+    return Array.from(
+      root.querySelectorAll<HTMLElement>(PROFILE_EDITABLE_SELECTOR),
+    ).map((node) => node.textContent ?? "");
+  };
+
+  const applyEditableValues = (values: string[]) => {
+    const root = mainRef.current;
+    if (!root) return;
+
+    const nodes = Array.from(
+      root.querySelectorAll<HTMLElement>(PROFILE_EDITABLE_SELECTOR),
+    );
+    nodes.forEach((node, index) => {
+      const value = values[index];
+      if (typeof value !== "string") return;
+      if ((node.textContent ?? "") === value) return;
+      node.textContent = value;
+    });
+  };
+
+  const saveEditableValues = async () => {
+    const values = collectEditableValues();
+    if (values.length === 0) return;
+
+    setContentSyncPending(true);
+    setContentSyncResult(null);
+    setContentSyncTone(null);
+
+    try {
+      const response = await fetch("/api/profile-content", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ values }),
+      });
+      const json = (await response.json()) as ProfileContentApiResponse;
+
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || "同步內容時發生錯誤，請稍後再試。");
+      }
+
+      setContentValues(values);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(CONTENT_SYNC_STORAGE_KEY, JSON.stringify(values));
+      }
+      setContentSyncTone("success");
+      setContentSyncResult(json.message || "網站內容已同步。");
+    } catch (error) {
+      setContentSyncTone("error");
+      setContentSyncResult(
+        error instanceof Error
+          ? error.message
+          : "同步內容時發生錯誤，請稍後再試。",
+      );
+    } finally {
+      setContentSyncPending(false);
+    }
+  };
+
+  const queueEditableSync = () => {
+    if (!editMode) return;
+    if (saveContentTimerRef.current) {
+      clearTimeout(saveContentTimerRef.current);
+    }
+    saveContentTimerRef.current = setTimeout(() => {
+      void saveEditableValues();
+    }, CONTENT_SAVE_DEBOUNCE_MS);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (saveContentTimerRef.current) {
+        clearTimeout(saveContentTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+
+    const restoreContent = async () => {
+      try {
+        const response = await fetch("/api/profile-content", {
+          cache: "no-store",
+        });
+        const json = (await response.json()) as ProfileContentApiResponse;
+        if (response.ok && json.ok && Array.isArray(json.values)) {
+          if (cancelled) return;
+          setContentValues(json.values);
+          window.localStorage.setItem(
+            CONTENT_SYNC_STORAGE_KEY,
+            JSON.stringify(json.values),
+          );
+          return;
+        }
+      } catch {
+        // API 失敗時，退回 localStorage 快取。
+      }
+
+      const cached = window.localStorage.getItem(CONTENT_SYNC_STORAGE_KEY);
+      if (!cached || cancelled) return;
+      try {
+        const parsed = JSON.parse(cached) as unknown;
+        if (Array.isArray(parsed)) {
+          setContentValues(
+            parsed.map((item) => (typeof item === "string" ? item : "")),
+          );
+        }
+      } catch {
+        // 快取解析失敗時忽略。
+      }
+    };
+
+    void restoreContent();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!contentValues) return;
+    applyEditableValues(contentValues);
+  }, [contentValues, editMode, exportMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -292,6 +443,12 @@ export default function Home() {
     setEditMode((prev) => !prev);
   };
 
+  const handleMainInputCapture = (event: React.FormEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    if (!target.isContentEditable) return;
+    queueEditableSync();
+  };
+
   return (
     <div className={rootClasses}>
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-8 sm:px-10 sm:py-12">
@@ -350,6 +507,28 @@ export default function Home() {
             </div>
           </div>
         </header>
+        {editMode && (
+          <div className="editor-only mt-3 flex items-center gap-2 text-[11px]">
+            <span className="text-zinc-500">內容同步：</span>
+            <span
+              className={
+                contentSyncPending
+                  ? "text-zinc-300"
+                  : contentSyncTone === "error"
+                    ? "text-rose-300"
+                    : contentSyncTone === "success"
+                      ? "text-emerald-300"
+                      : "text-zinc-400"
+              }
+              role="status"
+              aria-live="polite"
+            >
+              {contentSyncPending
+                ? "同步中…"
+                : contentSyncResult || "編輯內容會自動同步到伺服器（另一台裝置重新整理可看到最新內容）。"}
+            </span>
+          </div>
+        )}
 
         <nav
           className="mt-4 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 text-[11px] font-medium text-zinc-400 sm:hidden"
@@ -366,7 +545,12 @@ export default function Home() {
           ))}
         </nav>
 
-        <main className="flex flex-1 flex-col gap-16 py-10 sm:gap-20 sm:py-14">
+        <main
+          ref={mainRef}
+          className="flex flex-1 flex-col gap-16 py-10 sm:gap-20 sm:py-14"
+          onInputCapture={handleMainInputCapture}
+          onBlurCapture={handleMainInputCapture}
+        >
           <section
             id="hero"
             className="grid gap-10 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] sm:items-end"
@@ -375,6 +559,7 @@ export default function Home() {
               <p
                 className="text-xs font-medium uppercase tracking-[0.3em] text-zinc-500"
                 contentEditable={editMode}
+                data-profile-editable="1"
                 suppressContentEditableWarning
               >
                 {studentName} / 個人網站
@@ -382,6 +567,7 @@ export default function Home() {
               <h1 className="text-3xl font-semibold tracking-tight text-zinc-50 sm:text-4xl md:text-5xl">
                 <span
                   contentEditable={editMode}
+                data-profile-editable="1"
                   suppressContentEditableWarning
                 >
                   {studentName} 的個人網站
@@ -389,6 +575,7 @@ export default function Home() {
                 <span className="block text-zinc-400">
                   <span
                     contentEditable={editMode}
+                data-profile-editable="1"
                     suppressContentEditableWarning
                   >
                     紀錄學習、成長與作品
@@ -398,6 +585,7 @@ export default function Home() {
               <p
                 className="max-w-xl text-sm leading-relaxed text-zinc-400 sm:text-base"
                 contentEditable={editMode}
+                data-profile-editable="1"
                 suppressContentEditableWarning
               >
                 這個網站主要用來整理我的個人簡介、學習經歷與代表性作品。在這裡可以看到我的背景、
@@ -444,12 +632,14 @@ export default function Home() {
                   <p
                     className="font-medium text-zinc-200"
                     contentEditable={editMode}
+                data-profile-editable="1"
                     suppressContentEditableWarning
                   >
                     {studentName} / 資訊相關領域
                   </p>
                   <p
                     contentEditable={editMode}
+                data-profile-editable="1"
                     suppressContentEditableWarning
                   >
                     這是一個整理個人簡介、學習歷程與作品的網站，透過文字與介面呈現自己在資料、
@@ -543,6 +733,7 @@ export default function Home() {
               </p>
               <p
                 contentEditable={editMode}
+                data-profile-editable="1"
                 suppressContentEditableWarning
               >
                 關於我的背景、興趣與目前的學習與發展方向。
@@ -553,6 +744,7 @@ export default function Home() {
                 <p
                   key={index}
                   contentEditable={editMode}
+                data-profile-editable="1"
                   suppressContentEditableWarning
                 >
                   {text}
@@ -571,6 +763,7 @@ export default function Home() {
               </p>
               <p
                 contentEditable={editMode}
+                data-profile-editable="1"
                 suppressContentEditableWarning
               >
                 目標是長期的「目的地」，行動目標則是帶我一步步前進的「地圖」。
@@ -579,6 +772,7 @@ export default function Home() {
             <div className="space-y-4 text-sm leading-relaxed text-zinc-300">
               <p
                 contentEditable={editMode}
+                data-profile-editable="1"
                 suppressContentEditableWarning
               >
                 {goalsIntro}
@@ -591,6 +785,7 @@ export default function Home() {
                   <p className="text-zinc-200">
                     <span
                       contentEditable={editMode}
+                data-profile-editable="1"
                       suppressContentEditableWarning
                     >
                       Goal（目標）：{oneYearGoal}
@@ -601,6 +796,7 @@ export default function Home() {
                       <li
                         key={index}
                         contentEditable={editMode}
+                data-profile-editable="1"
                         suppressContentEditableWarning
                       >
                         Objective（行動目標）：{obj}
@@ -616,6 +812,7 @@ export default function Home() {
                   <p className="text-zinc-200">
                     <span
                       contentEditable={editMode}
+                data-profile-editable="1"
                       suppressContentEditableWarning
                     >
                       Goal（目標）：{threeYearGoal}
@@ -626,6 +823,7 @@ export default function Home() {
                       <li
                         key={index}
                         contentEditable={editMode}
+                data-profile-editable="1"
                         suppressContentEditableWarning
                       >
                         Objective（行動目標）：{obj}
@@ -641,6 +839,7 @@ export default function Home() {
                   <p className="text-zinc-200">
                     <span
                       contentEditable={editMode}
+                data-profile-editable="1"
                       suppressContentEditableWarning
                     >
                       Goal（目標）：{tenYearGoal}
@@ -651,6 +850,7 @@ export default function Home() {
                       <li
                         key={index}
                         contentEditable={editMode}
+                data-profile-editable="1"
                         suppressContentEditableWarning
                       >
                         Objective（行動目標）：{obj}
@@ -672,6 +872,7 @@ export default function Home() {
               </p>
               <p
                 contentEditable={editMode}
+                data-profile-editable="1"
                 suppressContentEditableWarning
               >
                 列出你的核心技能與工具。
@@ -684,6 +885,7 @@ export default function Home() {
                 </p>
                 <p
                   contentEditable={editMode}
+                data-profile-editable="1"
                   suppressContentEditableWarning
                 >
                   TypeScript、React、Next.js、Tailwind CSS、REST API
@@ -695,6 +897,7 @@ export default function Home() {
                 </p>
                 <p
                   contentEditable={editMode}
+                data-profile-editable="1"
                   suppressContentEditableWarning
                 >
                   UI 版型、設計系統、原型製作、互動流程規劃
@@ -713,6 +916,7 @@ export default function Home() {
               </p>
               <p
                 contentEditable={editMode}
+                data-profile-editable="1"
                 suppressContentEditableWarning
               >
                 精選 2–4 個代表性的作品。
@@ -724,6 +928,7 @@ export default function Home() {
                   <h3
                     className="text-sm font-medium text-zinc-50"
                     contentEditable={editMode}
+                data-profile-editable="1"
                     suppressContentEditableWarning
                   >
                     作品名稱範例 / Project A
@@ -735,6 +940,7 @@ export default function Home() {
                 <p
                   className="text-xs leading-relaxed text-zinc-400"
                   contentEditable={editMode}
+                data-profile-editable="1"
                   suppressContentEditableWarning
                 >
                   簡短描述這個專案的目標、你負責的部分，以及使用到的技術或設計重點。
@@ -755,6 +961,7 @@ export default function Home() {
                   <h3
                     className="text-sm font-medium text-zinc-50"
                     contentEditable={editMode}
+                data-profile-editable="1"
                     suppressContentEditableWarning
                   >
                     作品名稱範例 / Project B
@@ -766,6 +973,7 @@ export default function Home() {
                 <p
                   className="text-xs leading-relaxed text-zinc-400"
                   contentEditable={editMode}
+                data-profile-editable="1"
                   suppressContentEditableWarning
                 >
                   再放一個你滿意的作品，可以是商業案、個人實驗或是學校專題，
@@ -793,6 +1001,7 @@ export default function Home() {
               </p>
               <p
                 contentEditable={editMode}
+                data-profile-editable="1"
                 suppressContentEditableWarning
               >
                 讓別人知道如何找到你。
@@ -802,6 +1011,7 @@ export default function Home() {
               <div className="space-y-2 text-sm text-zinc-300">
                 <p
                   contentEditable={editMode}
+                data-profile-editable="1"
                   suppressContentEditableWarning
                 >
                   想合作、聊天或是有任何問題，都歡迎直接寫信給我，

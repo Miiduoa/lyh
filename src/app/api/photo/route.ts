@@ -18,7 +18,10 @@ type ProfilePhoto = {
   mtimeMs: number;
 };
 
-const getUploadDir = () => path.join(process.cwd(), "public", "uploads");
+const getStorageDir = () =>
+  process.env.APP_STORAGE_DIR || path.join(process.cwd(), "storage");
+
+const getUploadDir = () => path.join(getStorageDir(), "photos");
 
 const isProfilePhotoName = (fileName: string) =>
   fileName.startsWith(PROFILE_FILE_PREFIX);
@@ -80,7 +83,7 @@ export async function GET() {
 
     return NextResponse.json({
       ok: true,
-      url: `/uploads/${latestPhoto.fileName}`,
+      url: `/api/photo/file/${latestPhoto.fileName}`,
       updatedAt: latestPhoto.mtimeMs,
     });
   } catch (error) {
@@ -133,7 +136,7 @@ export async function POST(request: Request) {
     // 前端可用 ?v=timestamp 來避免快取。
     return NextResponse.json({
       ok: true,
-      url: `/uploads/${fileName}`,
+      url: `/api/photo/file/${fileName}`,
       updatedAt: fileStat.mtimeMs,
       message: "照片已上傳到伺服器。",
     });
