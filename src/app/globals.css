@@ -64,20 +64,10 @@ body {
   color: #020617;
 }
 
-.export-mode .site-header,
-.export-mode .mobile-nav,
-.export-mode .site-footer {
-  display: none !important;
-}
-
 .export-mode main {
   gap: 0 !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
-}
-
-.export-mode main > section:not(.pdf-sheet) {
-  display: none !important;
 }
 
 .export-mode .pdf-sheet {
@@ -239,6 +229,12 @@ body {
   @page {
     size: A4 portrait;
     margin: 9mm;
+  }
+
+  .site-header,
+  .mobile-nav,
+  .site-footer {
+    display: none !important;
   }
 
   .export-mode {

@@ -533,6 +533,7 @@ export default function Home() {
           <section
             className="pdf-sheet"
             aria-label="PDF 單頁履歷"
+            style={{ display: exportMode ? "flex" : "none" }}
           >
             <div className="pdf-sheet__header">
               <div className="pdf-sheet__identity">
@@ -599,7 +600,7 @@ export default function Home() {
 
           <section
             id="hero"
-            className="grid gap-10 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] sm:items-end"
+            className={`${exportMode ? "hidden " : ""}grid gap-10 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] sm:items-end`}
           >
             <div className="space-y-6">
               <p
@@ -771,7 +772,7 @@ export default function Home() {
 
           <section
             id="about"
-            className="grid gap-8 border-t border-zinc-800 pt-10 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]"
+            className={`${exportMode ? "hidden " : ""}grid gap-8 border-t border-zinc-800 pt-10 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]`}
           >
             <div className="space-y-2 text-xs text-zinc-400">
               <p className="font-medium uppercase tracking-[0.25em] text-zinc-500">
@@ -801,7 +802,7 @@ export default function Home() {
 
           <section
             id="goals"
-            className="grid gap-8 border-t border-zinc-800 pt-10 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]"
+            className={`${exportMode ? "hidden " : ""}grid gap-8 border-t border-zinc-800 pt-10 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]`}
           >
             <div className="space-y-2 text-xs text-zinc-400">
               <p className="font-medium uppercase tracking-[0.25em] text-zinc-500">
@@ -910,7 +911,7 @@ export default function Home() {
 
           <section
             id="skills"
-            className="grid gap-8 border-t border-zinc-800 pt-10 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]"
+            className={`${exportMode ? "hidden " : ""}grid gap-8 border-t border-zinc-800 pt-10 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]`}
           >
             <div className="space-y-2 text-xs text-zinc-400">
               <p className="font-medium uppercase tracking-[0.25em] text-zinc-500">
@@ -954,7 +955,7 @@ export default function Home() {
 
           <section
             id="projects"
-            className="grid gap-8 border-t border-zinc-800 pt-10 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]"
+            className={`${exportMode ? "hidden " : ""}grid gap-8 border-t border-zinc-800 pt-10 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]`}
           >
             <div className="space-y-2 text-xs text-zinc-400">
               <p className="font-medium uppercase tracking-[0.25em] text-zinc-500">
@@ -1039,7 +1040,7 @@ export default function Home() {
 
           <section
             id="contact"
-            className="grid gap-8 border-t border-zinc-800 pt-10 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]"
+            className={`${exportMode ? "hidden " : ""}grid gap-8 border-t border-zinc-800 pt-10 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]`}
           >
             <div className="space-y-2 text-xs text-zinc-400">
               <p className="font-medium uppercase tracking-[0.25em] text-zinc-500">
