@@ -24,3 +24,24 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* 只在畫面上顯示的編輯相關元素（輸出 / 列印時會隱藏） */
+.editor-only {
+  /* 預設正常顯示，下面用 @media print 隱藏 */
+}
+
+@media print {
+  .editor-only {
+    display: none !important;
+  }
+}
+
+/* 開啟編輯模式時，讓可編輯區塊更明顯 */
+.editable-mode [contenteditable="true"] {
+  outline: 1px dashed rgba(244, 244, 245, 0.4);
+  outline-offset: 2px;
+}
+
+.editable-mode [contenteditable="true"]:focus {
+  outline-color: rgba(244, 244, 245, 0.9);
+}
