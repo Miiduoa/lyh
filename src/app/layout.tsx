@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "個人網站 | 你的名字",
   description:
-    "配合《資料庫管理》課程作業所建立的現代簡約高級風格個人網站樣板，包含自我介紹、目標與行動目標。",
+    "現代簡約高級風格的個人網站樣板，包含自我介紹、學習與職涯目標、作品與聯絡方式。",
 };
 
 export default function RootLayout({

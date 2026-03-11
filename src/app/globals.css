@@ -45,3 +45,37 @@ body {
 .editable-mode [contenteditable="true"]:focus {
   outline-color: rgba(244, 244, 245, 0.9);
 }
+
+/* 輸出模式：隱藏編輯相關 UI，並採用較亮的底色與高對比度，方便轉成 PDF 或列印 */
+.export-mode .editor-only {
+  display: none !important;
+}
+
+.export-mode {
+  background: #f9fafb;
+  color: #020617;
+}
+
+.export-mode .border-zinc-800,
+.export-mode .border-zinc-900 {
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+.export-mode .bg-zinc-950,
+.export-mode .bg-zinc-900,
+.export-mode .bg-zinc-950\/60,
+.export-mode .bg-zinc-950\/40 {
+  background-color: #ffffff;
+}
+
+.export-mode .text-zinc-400 {
+  color: #64748b;
+}
+
+.export-mode .text-zinc-500 {
+  color: #6b7280;
+}
+
+.export-mode .text-zinc-50 {
+  color: #0f172a;
+}

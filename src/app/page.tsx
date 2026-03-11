@@ -18,18 +18,18 @@ const studentName = "你的名字"; // TODO：改成你的名字
 const department = "靜宜大學 資訊管理學系"; // TODO：如果不是資管就改這裡
 
 const aboutParagraphs = [
-  `${studentName}，目前就讀於 ${department}。我對「資料、資料庫與網頁技術」如何結合，解決真實生活中的問題很有興趣，包含從一般資訊網站，到可以協助決策的資料分析與管理系統。`,
-  "在課程與作業中，我接觸過關聯式資料庫（例如：MySQL / PostgreSQL），練習過畫 ER 圖、建立資料表、撰寫基本 SQL 指令（SELECT、INSERT、UPDATE、DELETE）、JOIN 查詢，以及初步的正規化。透過這門《資料庫管理》課程，我希望不只是熟悉語法，更能學會如何設計清楚、有結構的資料庫，理解效能與資料完整性的概念，並在實作專題中與同學合作應用。",
+  `${studentName}，目前就讀於 ${department}。我對「資料、資料庫與網頁技術」如何結合、解決真實生活中的問題很有興趣，包含從一般資訊網站，到可以協助決策的資料分析與管理系統。`,
+  "在學習與實作的過程中，我接觸過關聯式資料庫（例如：MySQL / PostgreSQL），練習過畫 ER 圖、建立資料表、撰寫基本 SQL 指令（SELECT、INSERT、UPDATE、DELETE）、JOIN 查詢，以及初步的正規化。同時也嘗試將資料庫與前端介面結合，思考如何讓資料被更有效率地管理與呈現。",
 ];
 
 const goalsIntro =
-  "在這份作業中，我將一年的、中期三年的，以及長期十年的學習與職涯規劃分成「目標（Goal）」與「行動目標（Objective）」。目標是我想達到的大方向與成果，好像我想前往的目的地；行動目標則是具體、可衡量的短期步驟，好像帶著我一步步前進的地圖。";
+  "我把自己一年的、中期三年的，以及長期十年的學習與職涯規劃分成「目標（Goal）」與「行動目標（Objective）」。目標是我想達到的大方向與成果，好像我想前往的目的地；行動目標則是具體、可衡量的短期步驟，好像帶著我一步步前進的地圖。";
 
 const oneYearGoal =
-  "建立資料庫管理與網頁開發的扎實基礎，確實學會本課程的重要觀念與實作能力。";
+  "建立資料庫管理與網頁開發的扎實基礎，確實掌握重要觀念與實作能力。";
 const oneYearObjectives = [
-  "所有《資料庫管理》課程的作業與專題都如期完成，並且保留清楚的文件與說明。",
-  "完成至少一個有連接資料庫的簡單網站或小系統，能在本機或雲端正常運作。",
+  "完成所有與資料庫與程式相關的練習與小專題，並且保留清楚的文件與說明。",
+  "完成至少一個有連接資料庫的簡單網站或小系統，能在本機或雲端正常運作，並整理成作品集的一部分。",
   "至少參加一場與資料庫、後端或資料相關的講座、工作坊或線上課程，擴展視野。",
 ];
 
@@ -51,6 +51,8 @@ const tenYearObjectives = [
 
 export default function Home() {
   const [editMode, setEditMode] = useState(true);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [exportMode, setExportMode] = useState(false);
   const [photoVersion, setPhotoVersion] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [sending, setSending] = useState(false);
@@ -98,8 +100,17 @@ export default function Home() {
     }
   };
 
+  const rootClasses = [
+    "min-h-screen",
+    theme === "dark" ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900",
+    editMode ? "editable-mode" : "",
+    exportMode ? "export-mode" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className={`min-h-screen bg-zinc-950 text-zinc-100 ${editMode ? "editable-mode" : ""}`}>
+    <div className={rootClasses}>
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-8 sm:px-10 sm:py-12">
         <header className="flex items-center justify-between border-b border-zinc-800 pb-4 sm:pb-6">
           <div className="flex items-center gap-2 text-xs font-medium tracking-[0.25em] text-zinc-400 uppercase">
@@ -118,13 +129,35 @@ export default function Home() {
                 </a>
               ))}
             </nav>
-            <button
-              type="button"
-              className="editor-only rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800"
-              onClick={() => setEditMode((prev) => !prev)}
-            >
-              {editMode ? "關閉編輯模式" : "開啟編輯模式"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="editor-only rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800"
+                onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+              >
+                {theme === "dark" ? "切換為亮色" : "切換為暗色"}
+              </button>
+              <button
+                type="button"
+                className="editor-only rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800"
+                onClick={() => {
+                  // 輸出模式下，自動關閉編輯效果
+                  setExportMode((prev) => !prev);
+                  if (!exportMode && editMode) {
+                    setEditMode(false);
+                  }
+                }}
+              >
+                {exportMode ? "離開輸出模式" : "輸出模式"}
+              </button>
+              <button
+                type="button"
+                className="editor-only rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800"
+                onClick={() => setEditMode((prev) => !prev)}
+              >
+                {editMode ? "關閉編輯模式" : "開啟編輯模式"}
+              </button>
+            </div>
           </div>
         </header>
 
@@ -189,8 +222,8 @@ export default function Home() {
             </div>
 
             <div className="space-y-4 rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-[0_0_120px_rgba(0,0,0,0.7)]">
-              <div className="flex items-center gap-4">
-                <div className="h-20 w-20 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60 flex items-center justify-center text-center">
+              <div className="flex items-center gap-5">
+                <div className="h-28 w-28 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/60 flex items-center justify-center text-center">
                   <img
                     src={`/uploads/profile.jpg${photoVersion ? `?v=${photoVersion}` : ""}`}
                     alt={studentName}
@@ -210,14 +243,14 @@ export default function Home() {
                     contentEditable={editMode}
                     suppressContentEditableWarning
                   >
-                    {studentName} / Database Management 學生
+                    {studentName} / 資訊相關領域
                   </p>
                   <p
                     contentEditable={editMode}
                     suppressContentEditableWarning
                   >
-                    本個人網站為《資料庫管理》課程作業之一，透過網頁呈現自我介紹、學習規劃與
-                    目標設定，並紀錄自己在資料庫與相關領域的學習歷程。
+                    這是一個整理個人簡介、學習歷程與作品的網站，透過文字與介面呈現自己在資料、
+                    網頁與相關技術上的興趣與成長軌跡。
                   </p>
                 </div>
               </div>
@@ -287,7 +320,7 @@ export default function Home() {
                 contentEditable={editMode}
                 suppressContentEditableWarning
               >
-                配合《資料庫管理》課程作業的自我介紹。
+                關於我的背景、興趣與目前的學習與發展方向。
               </p>
             </div>
             <div className="space-y-4 text-sm leading-relaxed text-zinc-300">
