@@ -51,7 +51,6 @@ const tenYearObjectives = [
 
 export default function Home() {
   const [editMode, setEditMode] = useState(true);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [exportMode, setExportMode] = useState(false);
   const [photoVersion, setPhotoVersion] = useState(0);
   const [photoError, setPhotoError] = useState(false);
@@ -103,12 +102,9 @@ export default function Home() {
 
   const rootClasses = [
     "min-h-screen",
-    theme === "dark" && !exportMode
-      ? "bg-zinc-950 text-zinc-100"
-      : "bg-zinc-50 text-zinc-900",
+    "bg-zinc-950 text-zinc-100",
     editMode ? "editable-mode" : "",
     exportMode ? "export-mode" : "",
-    theme === "light" && !exportMode ? "light-theme" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -137,19 +133,11 @@ export default function Home() {
               <button
                 type="button"
                 className="editor-only rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800"
-                onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-              >
-                {theme === "dark" ? "切換為亮色" : "切換為暗色"}
-              </button>
-              <button
-                type="button"
-                className="editor-only rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800"
                 onClick={() => {
-                  // 輸出模式下，自動關閉編輯效果並強制使用亮色主題
+                  // 輸出模式下，自動關閉編輯效果
                   setExportMode((prev) => {
                     const next = !prev;
                     if (next) {
-                      setTheme("light");
                       if (editMode) {
                         setEditMode(false);
                       }
@@ -189,22 +177,15 @@ export default function Home() {
                   contentEditable={editMode}
                   suppressContentEditableWarning
                 >
-                  專為您量身定制
+                  {studentName} 的個人網站
                 </span>
                 <span className="block text-zinc-400">
                   <span
                     contentEditable={editMode}
                     suppressContentEditableWarning
                   >
-                    現代、簡約高級程度
+                    紀錄學習、成長與作品
                   </span>
-                </span>
-                <span
-                  className="block"
-                  contentEditable={editMode}
-                  suppressContentEditableWarning
-                >
-                  個人品牌網站。
                 </span>
               </h1>
               <p
@@ -212,8 +193,8 @@ export default function Home() {
                 contentEditable={editMode}
                 suppressContentEditableWarning
               >
-                這是一個用來整理個人簡介、學習歷程與作品的網站，在這裡可以看到我的背景、
-                目標以及不同階段完成的專案，同時也留下了聯絡方式，方便進一步交流。
+                這個網站主要用來整理我的個人簡介、學習經歷與代表性作品。在這裡可以看到我的背景、
+                技能與不同階段完成的專案，同時也留下聯絡方式，方便對我有興趣的人進一步交流。
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <a
@@ -233,7 +214,7 @@ export default function Home() {
 
             <div className="space-y-4 rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-[0_0_120px_rgba(0,0,0,0.7)]">
               <div className="flex items-center gap-5">
-                <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border border-zinc-700 bg-zinc-900/80 text-center">
+                <div className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-zinc-700 bg-zinc-900/80 text-center">
                   {photoError ? (
                     <div className="flex h-full w-full flex-col items-center justify-center px-3 text-[11px] leading-relaxed text-zinc-500">
                       尚未設定大頭貼，

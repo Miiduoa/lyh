@@ -80,8 +80,9 @@ body {
   color: #0f172a;
 }
 
-.export-mode .shadow-\[0_0_120px_rgba\(0,0,0,0\.7\)\] {
-  box-shadow: none;
+.export-mode {
+  background: #f9fafb;
+  color: #020617;
 }
 
 @media print {
@@ -91,19 +92,4 @@ body {
   }
 }
 
-/* 亮色主題下，調整原本為深色主題設計的文字顏色，避免看不見 */
-.light-theme .text-zinc-50 {
-  color: #0f172a;
-}
-
-.light-theme .text-zinc-400 {
-  color: #4b5563;
-}
-
-.light-theme .text-zinc-500 {
-  color: #6b7280;
-}
-
-.light-theme nav a:hover {
-  color: #020617 !important;
-}
+/* 如未來需要完整亮色主題，可在此新增 light-theme 規則 */
