@@ -90,6 +90,8 @@ export default function Home() {
       }
       // 改變 version 讓 <img> 的查詢參數改變，避免快取看不到新圖
       setPhotoVersion(Date.now());
+      // 上傳成功後，清除錯誤狀態，讓大頭貼重新顯示
+      setPhotoError(false);
     } catch {
       // console.error("上傳照片時發生錯誤");
     } finally {
@@ -246,6 +248,7 @@ export default function Home() {
                       alt={studentName}
                       className="h-full w-full object-cover"
                       onError={() => setPhotoError(true)}
+                      onLoad={() => setPhotoError(false)}
                     />
                   )}
                 </div>
