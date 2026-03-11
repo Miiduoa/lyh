@@ -48,7 +48,6 @@ const tenYearObjectives = [
   "持續透過進修課程、閱讀與參與技術社群，讓自己的知識隨著產業變化而更新，不斷精進。",
 ];
 
-const PHOTO_STORAGE_KEY = "dbm-profile-photo";
 const EDIT_MODE_STORAGE_KEY = "dbm-edit-mode";
 const CONTENT_SYNC_STORAGE_KEY = "dbm-profile-content";
 const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
@@ -265,6 +264,7 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     let cancelled = false;
+    window.localStorage.removeItem("dbm-profile-photo");
 
     const restorePhoto = async () => {
       try {
@@ -275,13 +275,11 @@ export default function Home() {
             if (!cancelled) {
               setPhotoDataUrl(null);
             }
-            window.localStorage.removeItem(PHOTO_STORAGE_KEY);
             return;
           }
 
           if (cancelled) return;
           setPhotoDataUrl(withPhotoVersion(json.url, json.updatedAt));
-          window.localStorage.setItem(PHOTO_STORAGE_KEY, json.url);
           return;
         }
       } catch {
@@ -293,7 +291,6 @@ export default function Home() {
         setPhotoResultTone("error");
         setPhotoResult("目前無法讀取頭貼，請重新整理或重新上傳。");
       }
-      window.localStorage.removeItem(PHOTO_STORAGE_KEY);
     };
 
     void restorePhoto();
@@ -346,9 +343,6 @@ export default function Home() {
       }
 
       setPhotoDataUrl(withPhotoVersion(json.url, json.updatedAt));
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(PHOTO_STORAGE_KEY, json.url);
-      }
       setPhotoResultTone("success");
       setPhotoResult(json.message || "照片已上傳到伺服器。");
     } catch (error) {
@@ -368,18 +362,11 @@ export default function Home() {
 
   const handlePhotoClear = async () => {
     const previousPhotoUrl = photoDataUrl;
-    const previousStoredPhoto =
-      typeof window !== "undefined"
-        ? window.localStorage.getItem(PHOTO_STORAGE_KEY)
-        : null;
 
     setPhotoPending(true);
     setPhotoResult(null);
     setPhotoResultTone(null);
     setPhotoDataUrl(null);
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(PHOTO_STORAGE_KEY);
-    }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -399,13 +386,6 @@ export default function Home() {
     } catch (error) {
       setPhotoResultTone("error");
       setPhotoDataUrl(previousPhotoUrl);
-      if (typeof window !== "undefined") {
-        if (previousStoredPhoto) {
-          window.localStorage.setItem(PHOTO_STORAGE_KEY, previousStoredPhoto);
-        } else {
-          window.localStorage.removeItem(PHOTO_STORAGE_KEY);
-        }
-      }
       setPhotoResult(
         error instanceof Error
           ? error.message
