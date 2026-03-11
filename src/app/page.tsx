@@ -2,7 +2,7 @@
 
 /* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const sections = [
   { id: "about", label: "關於我" },
@@ -52,8 +52,7 @@ const tenYearObjectives = [
 export default function Home() {
   const [editMode, setEditMode] = useState(true);
   const [exportMode, setExportMode] = useState(false);
-  const [photoVersion, setPhotoVersion] = useState(0);
-  const [photoError, setPhotoError] = useState(false);
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<string | null>(null);
@@ -63,43 +62,27 @@ export default function Home() {
     message: "",
   });
 
-  const handlePhotoChange = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("dbm-profile-photo");
+    if (saved) {
+      setPhotoDataUrl(saved);
+    }
+  }, []);
+
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      const res = await fetch("/api/photo", {
-        method: "POST",
-        body: formData,
-      });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        url?: string;
-        error?: string;
-      };
-      if (!res.ok || !json.ok) {
-        // 這裡不用特別顯示錯誤 UI，使用者可以從畫面沒有變化感覺出來
-        // 如有需要，可加上獨立的錯誤訊息區塊
-        // console.error(json.error || "上傳失敗");
-        return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setPhotoDataUrl(result);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("dbm-profile-photo", result);
       }
-      // 改變 version 讓 <img> 的查詢參數改變，避免快取看不到新圖
-      setPhotoVersion(Date.now());
-      // 上傳成功後，清除錯誤狀態，讓大頭貼重新顯示
-      setPhotoError(false);
-    } catch {
-      // console.error("上傳照片時發生錯誤");
-    } finally {
-      // 清空 input 的值，才可以再選同一張圖觸發 change
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
+    };
+    reader.readAsDataURL(file);
   };
 
   const rootClasses = [
@@ -236,20 +219,18 @@ export default function Home() {
             <div className="space-y-4 rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-[0_0_120px_rgba(0,0,0,0.7)]">
               <div className="flex items-center gap-5">
                 <div className="relative flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border border-zinc-700 bg-zinc-900/80 text-center">
-                  {photoError ? (
+                  {photoDataUrl ? (
+                    <img
+                      src={photoDataUrl}
+                      alt={studentName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
                     <div className="flex h-full w-full flex-col items-center justify-center px-3 text-[11px] leading-relaxed text-zinc-500">
                       尚未設定大頭貼，
                       <br />
                       請使用右下角按鈕上傳。
                     </div>
-                  ) : (
-                    <img
-                      src={`/uploads/profile.jpg${photoVersion ? `?v=${photoVersion}` : ""}`}
-                      alt={studentName}
-                      className="h-full w-full object-cover"
-                      onError={() => setPhotoError(true)}
-                      onLoad={() => setPhotoError(false)}
-                    />
                   )}
                 </div>
                 <div className="space-y-2 text-xs text-zinc-400">
