@@ -109,6 +109,18 @@ export default function Home() {
     .filter(Boolean)
     .join(" ");
 
+  const handlePdfExport = () => {
+    if (typeof window === "undefined") return;
+    // 進入輸出模式並關閉編輯效果，再呼叫瀏覽器的列印對話框（可直接存成 PDF）
+    setExportMode(true);
+    if (editMode) {
+      setEditMode(false);
+    }
+    setTimeout(() => {
+      window.print();
+    }, 50);
+  };
+
   return (
     <div className={rootClasses}>
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-8 sm:px-10 sm:py-12">
@@ -147,6 +159,13 @@ export default function Home() {
                 }}
               >
                 {exportMode ? "離開輸出模式" : "輸出模式"}
+              </button>
+              <button
+                type="button"
+                className="editor-only rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800"
+                onClick={handlePdfExport}
+              >
+                下載 PDF
               </button>
               <button
                 type="button"
