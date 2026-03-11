@@ -1,8 +1,7 @@
 "use client";
 
-/* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */
-
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 
 const sections = [
   { id: "about", label: "關於我" },
@@ -49,13 +48,49 @@ const tenYearObjectives = [
   "持續透過進修課程、閱讀與參與技術社群，讓自己的知識隨著產業變化而更新，不斷精進。",
 ];
 
+const PHOTO_STORAGE_KEY = "dbm-profile-photo";
+const EDIT_MODE_STORAGE_KEY = "dbm-edit-mode";
+const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PHOTO_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+]);
+
+const withPhotoVersion = (url: string, version?: string | number | null) => {
+  const fallbackToken = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const token = version ?? fallbackToken;
+  return `${url}${url.includes("?") ? "&" : "?"}v=${token}`;
+};
+
+type ResultTone = "success" | "error";
+type PhotoApiResponse = {
+  ok?: boolean;
+  url?: string | null;
+  updatedAt?: number | null;
+  message?: string;
+  error?: string;
+};
+
 export default function Home() {
-  const [editMode, setEditMode] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [editModeReady, setEditModeReady] = useState(false);
   const [exportMode, setExportMode] = useState(false);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [photoPending, setPhotoPending] = useState(false);
+  const [photoResult, setPhotoResult] = useState<string | null>(null);
+  const [photoResultTone, setPhotoResultTone] = useState<ResultTone | null>(
+    null,
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<string | null>(null);
+  const [sendResultTone, setSendResultTone] = useState<ResultTone | null>(
+    null,
+  );
   const [contactForm, setContactForm] = useState({
     name: "",
     email: "",
@@ -64,25 +99,171 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const saved = window.localStorage.getItem("dbm-profile-photo");
-    if (saved) {
-      setPhotoDataUrl(saved);
+    const savedEditMode = window.localStorage.getItem(EDIT_MODE_STORAGE_KEY);
+    if (savedEditMode === "1") {
+      setEditMode(true);
     }
+    setEditModeReady(true);
   }, []);
 
-  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    if (typeof window === "undefined" || !editModeReady) return;
+    window.localStorage.setItem(EDIT_MODE_STORAGE_KEY, editMode ? "1" : "0");
+  }, [editMode, editModeReady]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+
+    const restorePhoto = async () => {
+      try {
+        const response = await fetch("/api/photo", { cache: "no-store" });
+        const json = (await response.json()) as PhotoApiResponse;
+        if (response.ok && json.ok) {
+          if (!json.url) {
+            if (!cancelled) {
+              setPhotoDataUrl(null);
+            }
+            window.localStorage.removeItem(PHOTO_STORAGE_KEY);
+            return;
+          }
+
+          if (cancelled) return;
+          setPhotoDataUrl(withPhotoVersion(json.url, json.updatedAt));
+          window.localStorage.setItem(PHOTO_STORAGE_KEY, json.url);
+          return;
+        }
+      } catch {
+        // 當讀取 API 失敗時，退回 localStorage 快取。
+      }
+
+      const saved = window.localStorage.getItem(PHOTO_STORAGE_KEY);
+      if (!saved || cancelled) return;
+      if (saved.startsWith("data:")) {
+        setPhotoDataUrl(saved);
+        return;
+      }
+      setPhotoDataUrl(withPhotoVersion(saved));
+    };
+
+    void restorePhoto();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handlePhotoChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setPhotoDataUrl(result);
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("dbm-profile-photo", result);
+    if (!ALLOWED_PHOTO_MIME_TYPES.has(file.type)) {
+      setPhotoResultTone("error");
+      setPhotoResult("請上傳 JPG、PNG、WEBP、GIF 或 AVIF 格式。");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_PHOTO_SIZE_BYTES) {
+      setPhotoResultTone("error");
+      setPhotoResult("圖片大小需小於 5MB，請壓縮後再上傳。");
+      event.target.value = "";
+      return;
+    }
+
+    const previousPhotoUrl = photoDataUrl;
+    const previewUrl = URL.createObjectURL(file);
+
+    setPhotoPending(true);
+    setPhotoResult(null);
+    setPhotoResultTone(null);
+    setPhotoDataUrl(previewUrl);
+
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+
+      const response = await fetch("/api/photo", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = (await response.json()) as PhotoApiResponse;
+
+      if (!response.ok || !json.ok || !json.url) {
+        throw new Error(json.error || "上傳照片時發生錯誤，請稍後再試。");
       }
-    };
-    reader.readAsDataURL(file);
+
+      setPhotoDataUrl(withPhotoVersion(json.url, json.updatedAt));
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(PHOTO_STORAGE_KEY, json.url);
+      }
+      setPhotoResultTone("success");
+      setPhotoResult(json.message || "照片已上傳到伺服器。");
+    } catch (error) {
+      setPhotoDataUrl(previousPhotoUrl);
+      setPhotoResultTone("error");
+      setPhotoResult(
+        error instanceof Error
+          ? error.message
+          : "上傳照片時發生錯誤，請稍後再試。",
+      );
+    } finally {
+      URL.revokeObjectURL(previewUrl);
+      setPhotoPending(false);
+      event.target.value = "";
+    }
+  };
+
+  const handlePhotoClear = async () => {
+    const previousPhotoUrl = photoDataUrl;
+    const previousStoredPhoto =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(PHOTO_STORAGE_KEY)
+        : null;
+
+    setPhotoPending(true);
+    setPhotoResult(null);
+    setPhotoResultTone(null);
+    setPhotoDataUrl(null);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(PHOTO_STORAGE_KEY);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
+    try {
+      const response = await fetch("/api/photo", {
+        method: "DELETE",
+      });
+      const json = (await response.json()) as PhotoApiResponse;
+
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || "清除頭貼時發生錯誤，請稍後再試。");
+      }
+
+      setPhotoResultTone("success");
+      setPhotoResult(json.message || "頭貼已清除。");
+    } catch (error) {
+      setPhotoResultTone("error");
+      setPhotoDataUrl(previousPhotoUrl);
+      if (typeof window !== "undefined") {
+        if (previousStoredPhoto) {
+          window.localStorage.setItem(PHOTO_STORAGE_KEY, previousStoredPhoto);
+        } else {
+          window.localStorage.removeItem(PHOTO_STORAGE_KEY);
+        }
+      }
+      setPhotoResult(
+        error instanceof Error
+          ? error.message
+          : "清除頭貼時發生錯誤，請稍後再試。",
+      );
+    } finally {
+      setPhotoPending(false);
+    }
   };
 
   const rootClasses = [
@@ -106,10 +287,15 @@ export default function Home() {
     }, 50);
   };
 
+  const toggleEditMode = () => {
+    setExportMode(false);
+    setEditMode((prev) => !prev);
+  };
+
   return (
     <div className={rootClasses}>
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-8 sm:px-10 sm:py-12">
-        <header className="flex items-center justify-between border-b border-zinc-800 pb-4 sm:pb-6">
+        <header className="flex items-center justify-between gap-3 border-b border-zinc-800 pb-4 sm:pb-6">
           <div className="flex items-center gap-2 text-xs font-medium tracking-[0.25em] text-zinc-400 uppercase">
             <span className="h-[1px] w-6 bg-zinc-500" />
             <span>PORTFOLIO</span>
@@ -126,10 +312,11 @@ export default function Home() {
                 </a>
               ))}
             </nav>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
-                className="editor-only rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800"
+                className="screen-only rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800"
+                aria-pressed={exportMode}
                 onClick={() => {
                   // 輸出模式下，自動關閉編輯效果
                   setExportMode((prev) => {
@@ -155,13 +342,29 @@ export default function Home() {
               <button
                 type="button"
                 className="editor-only rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800"
-                onClick={() => setEditMode((prev) => !prev)}
+                aria-pressed={editMode}
+                onClick={toggleEditMode}
               >
                 {editMode ? "關閉編輯模式" : "開啟編輯模式"}
               </button>
             </div>
           </div>
         </header>
+
+        <nav
+          className="mt-4 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 text-[11px] font-medium text-zinc-400 sm:hidden"
+          aria-label="手機章節導覽"
+        >
+          {sections.map((section) => (
+            <a
+              key={section.id}
+              href={`#${section.id}`}
+              className="shrink-0 rounded-full border border-zinc-800 bg-zinc-900/70 px-3 py-1.5 transition hover:border-zinc-600 hover:text-zinc-100"
+            >
+              {section.label}
+            </a>
+          ))}
+        </nav>
 
         <main className="flex flex-1 flex-col gap-16 py-10 sm:gap-20 sm:py-14">
           <section
@@ -220,10 +423,14 @@ export default function Home() {
               <div className="flex items-center gap-5">
                 <div className="relative flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border border-zinc-700 bg-zinc-900/80 text-center">
                   {photoDataUrl ? (
-                    <img
+                    <Image
                       src={photoDataUrl}
                       alt={studentName}
-                      className="h-full w-full object-cover"
+                      fill
+                      sizes="112px"
+                      className="object-cover"
+                      unoptimized
+                      onError={() => setPhotoDataUrl(null)}
                     />
                   ) : (
                     <div className="flex h-full w-full flex-col items-center justify-center px-3 text-[11px] leading-relaxed text-zinc-500">
@@ -257,16 +464,25 @@ export default function Home() {
                       編輯照片（上傳到伺服器）
                     </p>
                     <p className="text-[10px] text-zinc-500">
-                      上傳後會覆蓋伺服器上的 profile.jpg，所有人重新整理頁面都會看到最新的照片。
+                      支援 JPG、PNG、WEBP、GIF、AVIF；上傳後會覆蓋舊頭貼，所有人重新整理都會看到最新照片。
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[10px] font-medium tracking-[0.14em] text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800"
+                      className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[10px] font-medium tracking-[0.14em] text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={photoPending}
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      選擇照片…
+                      {photoPending ? "處理中…" : "選擇照片…"}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full border border-zinc-800 px-3 py-1.5 text-[10px] tracking-[0.14em] text-zinc-400 transition hover:border-zinc-600 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={photoPending}
+                      onClick={handlePhotoClear}
+                    >
+                      清除頭貼
                     </button>
                     <input
                       ref={fileInputRef}
@@ -277,6 +493,19 @@ export default function Home() {
                     />
                   </div>
                 </div>
+              )}
+              {photoResult && (
+                <p
+                  className={`text-[11px] ${
+                    photoResultTone === "error"
+                      ? "text-rose-300"
+                      : "text-emerald-300"
+                  }`}
+                  role="status"
+                  aria-live="polite"
+                >
+                  {photoResult}
+                </p>
               )}
               <div className="space-y-4 pt-4 border-t border-zinc-800">
                 <div className="flex items-center justify-between text-xs text-zinc-500">
@@ -585,6 +814,7 @@ export default function Home() {
                   event.preventDefault();
                   setSending(true);
                   setSendResult(null);
+                  setSendResultTone(null);
                   try {
                     const res = await fetch("/api/contact", {
                       method: "POST",
@@ -599,12 +829,15 @@ export default function Home() {
                       error?: string;
                     };
                     if (!res.ok || !json.ok) {
+                      setSendResultTone("error");
                       setSendResult(json.error || "送出失敗，請稍後再試。");
                     } else {
+                      setSendResultTone("success");
                       setSendResult(json.message || "已成功送出！");
                       setContactForm({ name: "", email: "", message: "" });
                     }
                   } catch {
+                    setSendResultTone("error");
                     setSendResult("送出時發生錯誤，請檢查網路或稍後再試。");
                   } finally {
                     setSending(false);
@@ -616,8 +849,9 @@ export default function Home() {
                     <span>姓名 *</span>
                     <input
                       type="text"
-                      className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-0 focus:border-zinc-500"
+                      className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-0 focus:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-60"
                       value={contactForm.name}
+                      disabled={sending}
                       onChange={(e) =>
                         setContactForm((prev) => ({
                           ...prev,
@@ -631,8 +865,9 @@ export default function Home() {
                     <span>Email *</span>
                     <input
                       type="email"
-                      className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-0 focus:border-zinc-500"
+                      className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-0 focus:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-60"
                       value={contactForm.email}
+                      disabled={sending}
                       onChange={(e) =>
                         setContactForm((prev) => ({
                           ...prev,
@@ -646,8 +881,9 @@ export default function Home() {
                 <label className="flex flex-col gap-1 text-xs text-zinc-400">
                   <span>訊息內容 *</span>
                   <textarea
-                    className="min-h-[96px] rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-0 focus:border-zinc-500"
+                    className="min-h-[96px] rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-0 focus:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-60"
                     value={contactForm.message}
+                    disabled={sending}
                     onChange={(e) =>
                       setContactForm((prev) => ({
                         ...prev,
@@ -666,7 +902,17 @@ export default function Home() {
                     {sending ? "送出中…" : "送出訊息"}
                   </button>
                   {sendResult && (
-                    <p className="text-xs text-zinc-400">{sendResult}</p>
+                    <p
+                      className={`text-xs ${
+                        sendResultTone === "error"
+                          ? "text-rose-300"
+                          : "text-emerald-300"
+                      }`}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {sendResult}
+                    </p>
                   )}
                 </div>
               </form>

@@ -1,6 +1,96 @@
 import { NextResponse } from "next/server";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, readdir, stat, unlink, writeFile } from "fs/promises";
 import path from "path";
+
+const PROFILE_LOCAL_BASENAME = "profile";
+const PROFILE_FILE_PREFIX = `${PROFILE_LOCAL_BASENAME}.`;
+const MIME_TO_EXTENSION = new Map<string, string>([
+  ["image/jpeg", "jpg"],
+  ["image/jpg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+  ["image/gif", "gif"],
+  ["image/avif", "avif"],
+]);
+
+type ProfilePhoto = {
+  fileName: string;
+  mtimeMs: number;
+};
+
+const getUploadDir = () => path.join(process.cwd(), "public", "uploads");
+
+const isProfilePhotoName = (fileName: string) =>
+  fileName.startsWith(PROFILE_FILE_PREFIX);
+
+async function findLatestProfilePhoto(
+  uploadDir: string,
+): Promise<ProfilePhoto | null> {
+  const entries = await readdir(uploadDir, { withFileTypes: true });
+  const profileFiles = entries.filter(
+    (entry) => entry.isFile() && isProfilePhotoName(entry.name),
+  );
+
+  if (profileFiles.length === 0) {
+    return null;
+  }
+
+  const photos = await Promise.all(
+    profileFiles.map(async (entry) => {
+      const filePath = path.join(uploadDir, entry.name);
+      const fileStat = await stat(filePath);
+      return { fileName: entry.name, mtimeMs: fileStat.mtimeMs };
+    }),
+  );
+
+  photos.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return photos[0] ?? null;
+}
+
+async function deleteAllProfilePhotos(uploadDir: string) {
+  const entries = await readdir(uploadDir, { withFileTypes: true });
+  const profileFiles = entries.filter(
+    (entry) => entry.isFile() && isProfilePhotoName(entry.name),
+  );
+
+  await Promise.all(
+    profileFiles.map(async (entry) => {
+      const filePath = path.join(uploadDir, entry.name);
+      try {
+        await unlink(filePath);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== "ENOENT") {
+          throw error;
+        }
+      }
+    }),
+  );
+}
+
+export async function GET() {
+  try {
+    const uploadDir = getUploadDir();
+    await mkdir(uploadDir, { recursive: true });
+    const latestPhoto = await findLatestProfilePhoto(uploadDir);
+
+    if (!latestPhoto) {
+      return NextResponse.json({ ok: true, url: null, updatedAt: null });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      url: `/uploads/${latestPhoto.fileName}`,
+      updatedAt: latestPhoto.mtimeMs,
+    });
+  } catch (error) {
+    console.error("[Photo Read Error]", error);
+    return NextResponse.json(
+      { ok: false, error: "讀取頭貼時發生錯誤，請稍後再試。" },
+      { status: 500 },
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -14,20 +104,37 @@ export async function POST(request: Request) {
       );
     }
 
+    const extension = MIME_TO_EXTENSION.get(file.type);
+    if (!extension) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "僅支援 JPG、PNG、WEBP、GIF、AVIF 格式的圖片。",
+        },
+        { status: 400 },
+      );
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    const uploadDir = getUploadDir();
     await mkdir(uploadDir, { recursive: true });
 
-    // 這裡固定檔名為 profile.jpg，每次上傳都覆蓋，代表「最新的個人照片」
-    const filePath = path.join(uploadDir, "profile.jpg");
-    await writeFile(filePath, buffer);
+    // 每次上傳前先清除舊檔，確保只保留最新的大頭貼。
+    await deleteAllProfilePhotos(uploadDir);
 
-    // 前端可以用 /uploads/profile.jpg?v=timestamp 來避免快取
+    const fileName = `${PROFILE_LOCAL_BASENAME}.${extension}`;
+    const filePath = path.join(uploadDir, fileName);
+    await writeFile(filePath, buffer);
+    const fileStat = await stat(filePath);
+
+    // 前端可用 ?v=timestamp 來避免快取。
     return NextResponse.json({
       ok: true,
-      url: "/uploads/profile.jpg",
+      url: `/uploads/${fileName}`,
+      updatedAt: fileStat.mtimeMs,
       message: "照片已上傳到伺服器。",
     });
   } catch (error) {
@@ -39,3 +146,21 @@ export async function POST(request: Request) {
   }
 }
 
+export async function DELETE() {
+  try {
+    const uploadDir = getUploadDir();
+    await mkdir(uploadDir, { recursive: true });
+    await deleteAllProfilePhotos(uploadDir);
+
+    return NextResponse.json({
+      ok: true,
+      message: "頭貼已從伺服器清除。",
+    });
+  } catch (error) {
+    console.error("[Photo Delete Error]", error);
+    return NextResponse.json(
+      { ok: false, error: "清除頭貼時發生錯誤，請稍後再試。" },
+      { status: 500 },
+    );
+  }
+}

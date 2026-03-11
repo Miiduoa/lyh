@@ -34,6 +34,10 @@ body {
   .editor-only {
     display: none !important;
   }
+
+  .screen-only {
+    display: none !important;
+  }
 }
 
 /* 開啟編輯模式時，讓可編輯區塊更明顯 */
