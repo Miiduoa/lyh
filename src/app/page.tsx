@@ -285,16 +285,15 @@ export default function Home() {
           return;
         }
       } catch {
-        // 當讀取 API 失敗時，退回 localStorage 快取。
+        // 讀取 API 失敗時，避免使用舊快取造成顯示錯誤頭貼。
       }
 
-      const saved = window.localStorage.getItem(PHOTO_STORAGE_KEY);
-      if (!saved || cancelled) return;
-      if (saved.startsWith("data:")) {
-        setPhotoDataUrl(saved);
-        return;
+      if (!cancelled) {
+        setPhotoDataUrl(null);
+        setPhotoResultTone("error");
+        setPhotoResult("目前無法讀取頭貼，請重新整理或重新上傳。");
       }
-      setPhotoDataUrl(withPhotoVersion(saved));
+      window.localStorage.removeItem(PHOTO_STORAGE_KEY);
     };
 
     void restorePhoto();

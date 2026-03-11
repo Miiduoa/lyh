@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { mkdir, readdir, stat, unlink, writeFile } from "fs/promises";
 import path from "path";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const PROFILE_LOCAL_BASENAME = "profile";
 const PROFILE_FILE_PREFIX = `${PROFILE_LOCAL_BASENAME}.`;
 const MIME_TO_EXTENSION = new Map<string, string>([
@@ -78,19 +81,38 @@ export async function GET() {
     const latestPhoto = await findLatestProfilePhoto(uploadDir);
 
     if (!latestPhoto) {
-      return NextResponse.json({ ok: true, url: null, updatedAt: null });
+      return NextResponse.json(
+        { ok: true, url: null, updatedAt: null },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        },
+      );
     }
 
-    return NextResponse.json({
-      ok: true,
-      url: `/api/photo/file/${latestPhoto.fileName}`,
-      updatedAt: latestPhoto.mtimeMs,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        url: `/api/photo/file/${latestPhoto.fileName}`,
+        updatedAt: latestPhoto.mtimeMs,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      },
+    );
   } catch (error) {
     console.error("[Photo Read Error]", error);
     return NextResponse.json(
       { ok: false, error: "讀取頭貼時發生錯誤，請稍後再試。" },
-      { status: 500 },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      },
     );
   }
 }
