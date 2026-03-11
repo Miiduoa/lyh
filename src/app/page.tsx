@@ -54,6 +54,7 @@ export default function Home() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [exportMode, setExportMode] = useState(false);
   const [photoVersion, setPhotoVersion] = useState(0);
+  const [photoError, setPhotoError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<string | null>(null);
@@ -102,9 +103,12 @@ export default function Home() {
 
   const rootClasses = [
     "min-h-screen",
-    theme === "dark" ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900",
+    theme === "dark" && !exportMode
+      ? "bg-zinc-950 text-zinc-100"
+      : "bg-zinc-50 text-zinc-900",
     editMode ? "editable-mode" : "",
     exportMode ? "export-mode" : "",
+    theme === "light" && !exportMode ? "light-theme" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -141,11 +145,17 @@ export default function Home() {
                 type="button"
                 className="editor-only rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800"
                 onClick={() => {
-                  // 輸出模式下，自動關閉編輯效果
-                  setExportMode((prev) => !prev);
-                  if (!exportMode && editMode) {
-                    setEditMode(false);
-                  }
+                  // 輸出模式下，自動關閉編輯效果並強制使用亮色主題
+                  setExportMode((prev) => {
+                    const next = !prev;
+                    if (next) {
+                      setTheme("light");
+                      if (editMode) {
+                        setEditMode(false);
+                      }
+                    }
+                    return next;
+                  });
                 }}
               >
                 {exportMode ? "離開輸出模式" : "輸出模式"}
@@ -179,14 +189,14 @@ export default function Home() {
                   contentEditable={editMode}
                   suppressContentEditableWarning
                 >
-                  打造專屬於你的
+                  專為您量身定制
                 </span>
                 <span className="block text-zinc-400">
                   <span
                     contentEditable={editMode}
                     suppressContentEditableWarning
                   >
-                    現代、簡約、高級質感
+                    現代、簡約高級程度
                   </span>
                 </span>
                 <span
@@ -202,8 +212,8 @@ export default function Home() {
                 contentEditable={editMode}
                 suppressContentEditableWarning
               >
-                這是一個配合《資料庫管理》課程作業所建立的個人網站，在這裡整理自我介紹、
-                學習目標與未來規劃，同時也可以展示作品與留下聯絡方式。
+                這是一個用來整理個人簡介、學習歷程與作品的網站，在這裡可以看到我的背景、
+                目標以及不同階段完成的專案，同時也留下了聯絡方式，方便進一步交流。
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <a
@@ -223,19 +233,21 @@ export default function Home() {
 
             <div className="space-y-4 rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-[0_0_120px_rgba(0,0,0,0.7)]">
               <div className="flex items-center gap-5">
-                <div className="h-28 w-28 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/60 flex items-center justify-center text-center">
-                  <img
-                    src={`/uploads/profile.jpg${photoVersion ? `?v=${photoVersion}` : ""}`}
-                    alt={studentName}
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      target.style.display = "none";
-                    }}
-                  />
-                  <span className="px-2 text-[10px] text-zinc-500">
-                    若尚未上傳，這裡會顯示預設狀態。
-                  </span>
+                <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border border-zinc-700 bg-zinc-900/80 text-center">
+                  {photoError ? (
+                    <div className="flex h-full w-full flex-col items-center justify-center px-3 text-[11px] leading-relaxed text-zinc-500">
+                      尚未設定大頭貼，
+                      <br />
+                      請使用右下角按鈕上傳。
+                    </div>
+                  ) : (
+                    <img
+                      src={`/uploads/profile.jpg${photoVersion ? `?v=${photoVersion}` : ""}`}
+                      alt={studentName}
+                      className="h-full w-full object-cover"
+                      onError={() => setPhotoError(true)}
+                    />
+                  )}
                 </div>
                 <div className="space-y-2 text-xs text-zinc-400">
                   <p
