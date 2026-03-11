@@ -2,7 +2,7 @@
 
 /* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 const sections = [
   { id: "about", label: "關於我" },
@@ -51,7 +51,7 @@ const tenYearObjectives = [
 
 export default function Home() {
   const [editMode, setEditMode] = useState(true);
-  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [photoVersion, setPhotoVersion] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<string | null>(null);
@@ -61,27 +61,41 @@ export default function Home() {
     message: "",
   });
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const saved = window.localStorage.getItem("dbm-profile-photo");
-    if (saved) {
-      setPhotoDataUrl(saved);
-    }
-  }, []);
-
-  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setPhotoDataUrl(result);
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("dbm-profile-photo", result);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/photo", {
+        method: "POST",
+        body: formData,
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        url?: string;
+        error?: string;
+      };
+      if (!res.ok || !json.ok) {
+        // 這裡不用特別顯示錯誤 UI，使用者可以從畫面沒有變化感覺出來
+        // 如有需要，可加上獨立的錯誤訊息區塊
+        // console.error(json.error || "上傳失敗");
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+      // 改變 version 讓 <img> 的查詢參數改變，避免快取看不到新圖
+      setPhotoVersion(Date.now());
+    } catch {
+      // console.error("上傳照片時發生錯誤");
+    } finally {
+      // 清空 input 的值，才可以再選同一張圖觸發 change
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   };
 
   return (
@@ -177,21 +191,18 @@ export default function Home() {
             <div className="space-y-4 rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-[0_0_120px_rgba(0,0,0,0.7)]">
               <div className="flex items-center gap-4">
                 <div className="h-20 w-20 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60 flex items-center justify-center text-center">
-                  {photoDataUrl ? (
-                    // 線上可更換的照片（儲存在 localStorage 中）
-                    // 只會存在於目前這台電腦／這個瀏覽器
-                    // 不會影響原始作業檔案內容
-                    // 輸出（列印 / 轉 PDF）時會正常顯示目前畫面上的照片
-                    <img
-                      src={photoDataUrl}
-                      alt={studentName}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="px-2 text-[10px] text-zinc-500">
-                      尚未選擇照片
-                    </span>
-                  )}
+                  <img
+                    src={`/uploads/profile.jpg${photoVersion ? `?v=${photoVersion}` : ""}`}
+                    alt={studentName}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.style.display = "none";
+                    }}
+                  />
+                  <span className="px-2 text-[10px] text-zinc-500">
+                    若尚未上傳，這裡會顯示預設狀態。
+                  </span>
                 </div>
                 <div className="space-y-2 text-xs text-zinc-400">
                   <p
@@ -214,10 +225,10 @@ export default function Home() {
                 <div className="editor-only flex items-center justify-between gap-3 border-t border-zinc-800 pt-3 text-[11px] text-zinc-400">
                   <div>
                     <p className="uppercase tracking-[0.18em] text-zinc-500">
-                      編輯照片（僅此裝置瀏覽器）
+                      編輯照片（上傳到伺服器）
                     </p>
                     <p className="text-[10px] text-zinc-500">
-                      變更後會儲存在本機瀏覽器的 localStorage，重新整理仍會保留。
+                      上傳後會覆蓋伺服器上的 profile.jpg，所有人重新整理頁面都會看到最新的照片。
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -227,18 +238,6 @@ export default function Home() {
                       onClick={() => fileInputRef.current?.click()}
                     >
                       選擇照片…
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-full border border-zinc-800 px-3 py-1.5 text-[10px] tracking-[0.14em] text-zinc-400 transition hover:border-zinc-600 hover:text-zinc-100"
-                      onClick={() => {
-                        setPhotoDataUrl(null);
-                        if (typeof window !== "undefined") {
-                          window.localStorage.removeItem("dbm-profile-photo");
-                        }
-                      }}
-                    >
-                      清除
                     </button>
                     <input
                       ref={fileInputRef}
