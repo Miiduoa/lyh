@@ -431,7 +431,7 @@ export default function Home() {
   return (
     <div className={rootClasses}>
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-8 sm:px-10 sm:py-12">
-        <header className="flex items-center justify-between gap-3 border-b border-zinc-800 pb-4 sm:pb-6">
+        <header className="site-header flex items-center justify-between gap-3 border-b border-zinc-800 pb-4 sm:pb-6">
           <div className="flex items-center gap-2 text-xs font-medium tracking-[0.25em] text-zinc-400 uppercase">
             <span className="h-[1px] w-6 bg-zinc-500" />
             <span>PORTFOLIO</span>
@@ -510,7 +510,7 @@ export default function Home() {
         )}
 
         <nav
-          className="mt-4 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 text-[11px] font-medium text-zinc-400 sm:hidden"
+          className="mobile-nav mt-4 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 text-[11px] font-medium text-zinc-400 sm:hidden"
           aria-label="手機章節導覽"
         >
           {sections.map((section) => (
@@ -530,6 +530,73 @@ export default function Home() {
           onInputCapture={handleMainInputCapture}
           onBlurCapture={handleMainInputCapture}
         >
+          <section
+            className="pdf-sheet"
+            aria-label="PDF 單頁履歷"
+          >
+            <div className="pdf-sheet__header">
+              <div className="pdf-sheet__identity">
+                <p className="pdf-sheet__eyebrow">PERSONAL PROFILE</p>
+                <h1 className="pdf-sheet__name">{studentName}</h1>
+                <p className="pdf-sheet__subtitle">{department}</p>
+              </div>
+              <div className="pdf-sheet__photo">
+                {photoDataUrl ? (
+                  <Image
+                    src={photoDataUrl}
+                    alt={studentName}
+                    width={96}
+                    height={96}
+                    className="h-24 w-24 rounded-2xl object-cover"
+                    unoptimized
+                    onError={() => setPhotoDataUrl(null)}
+                  />
+                ) : (
+                  <div className="pdf-sheet__photo-placeholder">
+                    PHOTO
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pdf-sheet__grid">
+              <article className="pdf-sheet__card">
+                <h2>關於我</h2>
+                <p>
+                  我專注於資料庫與網頁整合，擅長將資料結構、介面與流程設計成可維護且可擴充的系統。
+                </p>
+              </article>
+              <article className="pdf-sheet__card">
+                <h2>核心技能</h2>
+                <ul>
+                  <li>SQL 與資料庫設計（ERD / 正規化 / JOIN）</li>
+                  <li>Next.js / React / TypeScript</li>
+                  <li>REST API 與前後端整合</li>
+                </ul>
+              </article>
+              <article className="pdf-sheet__card">
+                <h2>年度目標</h2>
+                <p>{oneYearGoal}</p>
+                <ul>
+                  <li>{oneYearObjectives[0]}</li>
+                  <li>{oneYearObjectives[1]}</li>
+                </ul>
+              </article>
+              <article className="pdf-sheet__card">
+                <h2>代表作品</h2>
+                <ul>
+                  <li>Project A：資料驅動網站與互動介面實作</li>
+                  <li>Project B：前端體驗優化與內容展示規劃</li>
+                </ul>
+              </article>
+            </div>
+
+            <div className="pdf-sheet__footer">
+              <span>Taichung, Taiwan</span>
+              <span>© {new Date().getFullYear()} {studentName}</span>
+            </div>
+          </section>
+
           <section
             id="hero"
             className="grid gap-10 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] sm:items-end"
@@ -1109,7 +1176,7 @@ export default function Home() {
           </section>
         </main>
 
-        <footer className="border-t border-zinc-900 pt-4 text-[11px] text-zinc-500">
+        <footer className="site-footer border-t border-zinc-900 pt-4 text-[11px] text-zinc-500">
           <p>
             © {new Date().getFullYear()} YOUR NAME. All rights reserved.
           </p>

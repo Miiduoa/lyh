@@ -40,6 +40,10 @@ body {
   }
 }
 
+.pdf-sheet {
+  display: none;
+}
+
 /* 開啟編輯模式時，讓可編輯區塊更明顯 */
 .editable-mode [contenteditable="true"] {
   outline: 1px dashed rgba(244, 244, 245, 0.4);
@@ -58,6 +62,148 @@ body {
 .export-mode {
   background: #f9fafb;
   color: #020617;
+}
+
+.export-mode .site-header,
+.export-mode .mobile-nav,
+.export-mode .site-footer {
+  display: none !important;
+}
+
+.export-mode main {
+  gap: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.export-mode main > section:not(.pdf-sheet) {
+  display: none !important;
+}
+
+.export-mode .pdf-sheet {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 276mm;
+  overflow: hidden;
+  border: 1px solid #dbe6f3;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 44%),
+    radial-gradient(circle at 20% 85%, rgba(59, 130, 246, 0.1), transparent 40%),
+    #ffffff;
+  box-shadow: 0 26px 56px rgba(15, 23, 42, 0.12);
+  padding: 14mm 13mm;
+}
+
+.export-mode .pdf-sheet__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.12);
+}
+
+.export-mode .pdf-sheet__identity {
+  min-width: 0;
+}
+
+.export-mode .pdf-sheet__eyebrow {
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.export-mode .pdf-sheet__name {
+  margin: 8px 0 3px;
+  font-size: 33px;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.export-mode .pdf-sheet__subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+}
+
+.export-mode .pdf-sheet__photo {
+  flex-shrink: 0;
+}
+
+.export-mode .pdf-sheet__photo-placeholder {
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
+  border: 1px dashed #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: #64748b;
+  background: #f8fafc;
+}
+
+.export-mode .pdf-sheet__grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.export-mode .pdf-sheet__card {
+  border: 1px solid rgba(30, 41, 59, 0.1);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.78);
+  padding: 10px 11px;
+}
+
+.export-mode .pdf-sheet__card h2 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #334155;
+}
+
+.export-mode .pdf-sheet__card p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #0f172a;
+}
+
+.export-mode .pdf-sheet__card ul {
+  margin: 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 4px;
+}
+
+.export-mode .pdf-sheet__card li {
+  font-size: 11px;
+  line-height: 1.4;
+  color: #1e293b;
+}
+
+.export-mode .pdf-sheet__footer {
+  margin-top: auto;
+  padding-top: 9px;
+  border-top: 1px solid rgba(30, 41, 59, 0.12);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
 }
 
 .export-mode .border-zinc-800,
@@ -90,9 +236,21 @@ body {
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 9mm;
+  }
+
   .export-mode {
     background: #ffffff;
     color: #020617;
+  }
+
+  .export-mode .pdf-sheet {
+    min-height: auto;
+    height: 279mm;
+    box-shadow: none;
+    border-radius: 10px;
   }
 }
 
